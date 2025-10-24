@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RelaShare - 他者撮影限定SNS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+        }
+        #app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        main {
+            flex-grow: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .nav-item.active {
+            color: #3b82f6;
+        }
+        .nav-item.active svg {
+            color: #3b82f6;
+        }
+        .post-button {
+            display: block;
+            background-color: #3b82f6;
+            color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            text-align: center;
+            font-size: 1rem;
+            width: 100%;
+            margin-bottom: 0.75rem;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .post-button:hover:not(:disabled) {
+            background-color: #2563eb;
+        }
+        .post-button.secondary {
+            background-color: #6b7280;
+        }
+        .post-button.secondary:hover {
+            background-color: #4b5563;
+        }
+        .post-button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .hidden {
+            display: none;
+        }
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            text-align: center;
+        }
+        .message-box button {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+        .post-input {
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .post-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        /* モーダル共通スタイル */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+        }
+        .modal.hidden {
+            display: none;
+        }
+        .modal-content {
+            background-color: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            max-width: 90%;
+            width: 400px;
+            position: relative;
+        }
+        
+        .like-button.liked svg {
+            fill: #ef4444;
+            stroke: #ef4444;
+        }
+
+        /* コメントいいねボタンのスタイル */
+        .comment-like-button.liked svg {
+            fill: #ef4444 !important;
+            stroke: #ef4444 !important;
+        }
+
+        .prize-card {
+            background-color: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .prize-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .accordion-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+        }
+        .accordion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background-color: #f9fafb;
+            cursor: pointer;
+        }
+        .accordion-content {
+            display: none;
+            padding: 1rem;
+            background-color: #ffffff;
+        }
+        
+        /* ★HOMEタブのデザイン修正用CSSを追加 */
+        .info-box.gradient-blue {
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            border: none;
+        }
+        .info-box.gradient-green {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            border: none;
+        }
+        .battery-indicator-home {
+            --battery-color: #ffffff; /* HOMEタブでは白にする */
+        }
+        .battery-indicator-home .w-3 {
+            background-color: var(--battery-color);
+        }
+        .battery-indicator-home .bg-gray-300 {
+            background-color: rgba(255, 255, 255, 0.3); /* 非アクティブ部分を薄い白に */
+        }
+        /* gold battery and badge */
+        .battery-gold .w-3 {
+            background-color: #d97706; /* amber-600 */
+        }
+        .battery-gold .battery-tip {
+            background-color: #d97706;
+        }
+        .gold-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg,#fbbf24,#f59e0b);
+            color: #fff;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 12px;
+            margin-left: 8px;
+            box-shadow: 0 2px 6px rgba(245,158,11,0.3);
+        }
+        .clickable-area { cursor: pointer; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900">
+    <div id="app" class="flex flex-col h-screen max-w-md mx-auto bg-white dark:bg-gray-800 shadow-lg">
+
+        <header class="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold text-blue-500 dark:text-blue-400">RelaShare</h1>
+                <button id="premium-button" type="button" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold text-black bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-amber-300">
+                    <span class="tracking-wide">RelaShare JET</span>
+                </button>
+            </div>
+            <div class="flex items-center">
+                <button class="icon-button p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="通知">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-gray-600 dark:text-gray-300">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.57 3.55 1.007 5.397 1.311A21.725 21.725 0 0112 15.75a21.725 21.725 0 011.642.267c1.847-.304 3.664-.74 5.397-1.311A8.967 8.967 0 0118 9.75V9a6 6 0 00-6-6h-3" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main id="main-content" class="flex-grow overflow-y-auto p-4 space-y-4">
+            </main>
+
+        <nav class="bottom-navigation flex justify-around items-center p-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <button class="nav-item flex flex-col items-center text-sm font-medium text-gray-400 hover:text-blue-500 transition-colors" data-page="home">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
+                <span>ホーム</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-sm font-medium text-gray-400 hover:text-blue-500 transition-colors" data-page="post">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.32 2.32 0 015.186 7.23c-.38.163-.726.391-.974.639-1.359 1.359-1.198 3.551.427 4.965l.344.344A39.425 39.425 0 0012 17.25m-8.625-6.875a39.425 39.425 0 0113.87 0M18.75 6.175a2.32 2.32 0 011.643 1.055c.38.163.726.391.974.639 1.359 1.359 1.198 3.551-.427 4.965l-.344.344c-2.572 2.572-5.744 4.041-9.083 4.629m-8.625-6.875a39.425 39.425 0 0113.87 0" /></svg>
+                <span>POST</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-sm font-medium text-gray-400 hover:text-blue-500 transition-colors" data-page="search">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                <span>search</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-sm font-medium text-gray-400 hover:text-blue-500 transition-colors" data-page="events">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm-3-6h.008v.008H9V9zm-3 6h.008v.008H6V15zm-3 6h.008v.008H3v-.008zm1.5-6h.008v.008H4.5V15z" /></svg>
+                <span>event</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-sm font-medium text-gray-400 hover:text-blue-500 transition-colors" data-page="profile">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 19.5a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+                <span>My page</span>
+            </button>
+        </nav>
+
+        <div id="message-box" class="message-box hidden">
+            <p>投稿が完了しました！</p>
+            <button id="message-box-ok">OK</button>
+        </div>
+
+        <div id="post-options-modal" class="modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-[1002]">
+            <div class="bg-white rounded-lg p-6 max-w-xs w-full relative text-center">
+                <h3 class="text-xl font-bold mb-4">投稿オプション</h3>
+                <button id="delete-post-button" class="w-full bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors mb-2" data-deleting-post-id="">削除する</button>
+                <button id="cancel-post-options" class="w-full bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors">キャンセル</button>
+            </div>
+        </div>
+        
+        <div id="profile-edit-modal" class="modal hidden">
+            <div class="modal-content">
+                <button id="close-profile-edit-modal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <h3 class="text-xl font-bold mb-6 text-center">プロフィール編集</h3>
+                <form id="profile-edit-form" class="space-y-4">
+                    <div class="flex flex-col items-center mb-6">
+                        <img id="profile-icon-preview" src="https://placehold.co/80x80/E5E7EB/6B7280?text=User" alt="Profile Icon Preview" class="w-20 h-20 rounded-full mb-3 object-cover border-2 border-gray-300">
+                        <label for="edit-icon" class="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-full text-sm transition-colors">
+                            アイコンを変更
+                        </label>
+                        <input type="file" id="edit-icon" class="hidden" accept="image/*">
+                    </div>
+                    
+                    <div>
+                        <label for="edit-name" class="block text-sm font-medium text-gray-700">名前</label>
+                        <input type="text" id="edit-name" class="mt-1 block w-full rounded-md post-input" required>
+                    </div>
+                    <div>
+                        <label for="edit-username" class="block text-sm font-medium text-gray-700">ユーザー名 (@なし)</label>
+                        <input type="text" id="edit-username" class="mt-1 block w-full rounded-md post-input" required>
+                    </div>
+                    <div>
+                        <label for="edit-bio" class="block text-sm font-medium text-gray-700">自己紹介</label>
+                        <textarea id="edit-bio" rows="3" class="mt-1 block w-full rounded-md post-input"></textarea>
+                    </div>
+                    <button type="submit" id="save-profile-button" class="post-button mt-6 w-full py-2">保存</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="overlay" class="overlay hidden"></div>
+        
+        <div id="comment-modal" class="modal hidden">
+            <div class="modal-content max-w-sm">
+                <button id="close-comment-modal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <h3 class="text-xl font-bold mb-4">コメント</h3>
+                <div id="comment-list" class="space-y-4 max-h-64 overflow-y-auto mb-4">
+                    </div>
+                <div class="flex">
+                    <input type="text" id="new-comment-input" class="flex-grow p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="コメントを追加...">
+                    <button id="submit-comment-button" class="ml-2 p-2 bg-blue-500 text-white rounded-lg">投稿</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="event-modal" class="modal hidden">
+            <div class="modal-content max-w-sm">
+                <button id="close-event-modal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <h3 id="event-modal-title" class="text-xl font-bold mb-4 text-blue-600"></h3>
+                <div id="event-modal-content" class="text-gray-700 text-sm leading-relaxed space-y-2"></div>
+            </div>
+        </div>
+
+        <div id="admin-modal" class="modal hidden">
+            <div class="modal-content max-w-sm">
+                <button id="close-admin-modal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <h3 class="text-xl font-bold mb-6 text-red-600 text-center">管理者設定</h3>
+                <div class="space-y-4">
+                    <p class="text-sm text-gray-600 border-b pb-2 mb-2">投稿回数を最大値にリセットします。</p>
+                    <button id="reset-post-count-button" class="post-button w-full bg-red-500 hover:bg-red-600 py-2">投稿回数をリセット (3回)</button>
+                    
+                    <p class="text-sm text-gray-600 border-b pb-2 mb-2 pt-4">広告視聴による回復制限をリセットし、すぐに再利用可能にします。</p>
+                    <button id="reset-ad-limit-button" class="post-button w-full bg-orange-500 hover:bg-orange-600 py-2">広告回復制限をリセット</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 定数とlocalStorageキー ---
+        const POSTS_STORAGE_KEY = 'relashare_posts';
+        const COUNT_STORAGE_KEY = 'relashare_post_count';
+        const PROFILE_STORAGE_KEY = 'relashare_profile'; 
+        const COMMENT_LIKES_STORAGE_KEY = 'relashare_comment_likes'; 
+        const POST_LIKES_STORAGE_KEY = 'relashare_post_likes'; 
+        const CURRENT_USER_ID = 'current_user_id'; 
+        // ★広告回復の最終タイムスタンプキー
+        const AD_RECOVERY_TIMESTAMP_KEY = 'relashare_ad_recovery_timestamp'; 
+        const MAX_POSTS_COUNT = 3; 
+        
+        const ONE_MINUTE = 60 * 1000;
+        const ONE_HOUR = 60 * ONE_MINUTE;
+        const ONE_DAY = 24 * ONE_HOUR; // ★一日制限のための定数
+
+        // --- 初期プロフィールデータ ---
+        const defaultProfile = {
+            name: 'Test User',
+            username: 'testuser',
+            bio: '自然体の写真を撮るのが好きです。映えよりも思い出を大切に。',
+            followers: 10,
+            following: 5,
+            icon: 'https://placehold.co/80x80/E5E7EB/6B7280?text=User', 
+            id: CURRENT_USER_ID,
+            premium: false
+        };
+
+        // --- 初期投稿データ (timestampを使用) ---
+        const initialPosts = [
+            {
+                id: 4, 
+                user: 'Test User', 
+                userId: CURRENT_USER_ID, 
+                timestamp: Date.now() - ONE_HOUR, 
+                image: 'https://placehold.co/600x450/E5E7EB/6B7280?text=My+Post',
+                caption: 'これは私が投稿した写真です。削除ボタンが表示されます。',
+                photographer: '@Friend',
+                location: '公園',
+                likes: 5,
+                comments: [
+                     // 他人からのコメント
+                     { user: 'Test Player 2', text: 'いい写真ですね！', userId: 'other_user_2', likes: 2 }, // likesを追加
+                     // 自分でコメントしたテストデータ (削除可能)
+                     { user: 'Test User', text: '自分で入れたテストコメントです。削除できます。', userId: CURRENT_USER_ID, likes: 5 } // likesを追加
+                ]
+            },
+            {
+                id: 1,
+                user: 'Test Player',
+                userId: 'other_user_1',
+                timestamp: Date.now() - (5 * ONE_MINUTE), // 5分前
+                image: 'https://placehold.co/600x450/E5E7EB/6B7280?text=Post',
+                caption: '山に行きました。私かわいいでしょう。',
+                photographer: '@Test Player2',
+                location: '高尾山',
+                likes: 12,
+                comments: [
+                    { user: 'Test User 2', text: 'いい写真だね！', userId: 'other_user_2', likes: 1 }, // likesを追加
+                    { user: 'RelaShare Official', text: '自然体の素敵な笑顔ですね！', userId: 'official', likes: 3 }, // likesを追加
+                    { user: 'Test User 3', text: '私もここ行ったことあります！', userId: 'other_user_3', likes: 0 }, // likesを追加
+                    // 自分（CURRENT_USER）が他人の投稿にしたコメント -> 削除可能にする
+                    { user: defaultProfile.name, text: '素敵な写真なのでコメント削除テストに使わせてもらいます！', userId: CURRENT_USER_ID, likes: 8 } // likesを追加
+                ]
+            },
+            {
+                id: 2,
+                user: 'Test Player3',
+                userId: 'other_user_2',
+                timestamp: Date.now() - (2 * ONE_DAY), // 2日前
+                image: 'https://placehold.co/600x450/E5E7EB/6B7280?text=Post',
+                caption: '富士山の景色が最高でした！',
+                photographer: '@Test Player4',
+                location: '富士山',
+                likes: 25,
+                comments: [
+                    { user: 'Test User 5', text: '絶景ですね！', userId: 'other_user_5', likes: 4 }, // likesを追加
+                    { user: 'Test User 6', text: '写真の構図が素晴らしいです！', userId: 'other_user_6', likes: 1 } // likesを追加
+                ]
+            }
+        ];
+        
+        // --- localStorageデータ操作関数 ---
+
+        function loadData() {
+            const storedPosts = localStorage.getItem(POSTS_STORAGE_KEY);
+            let loadedPosts = initialPosts;
+            if (storedPosts) {
+                try {
+                    // userId/likesを追加するマイグレーション処理
+                    loadedPosts = JSON.parse(storedPosts).map(post => {
+                        if (post.user === 'Current User' && !post.userId) { // 以前のバージョンとの互換性
+                            post.userId = CURRENT_USER_ID;
+                        }
+                        if (!post.userId && post.user !== 'Test Player' && post.user !== 'Test Player3') {
+                            post.userId = CURRENT_USER_ID; 
+                        }
+                        // コメントにもuserIdとlikesを追加
+                        post.comments = post.comments.map(comment => {
+                            if (!comment.userId) {
+                                comment.userId = (comment.user === loadProfileData().name) ? CURRENT_USER_ID : 'unknown_user';
+                            }
+                            if (typeof comment.likes === 'undefined') { // likesがない場合0を設定
+                                comment.likes = 0;
+                            }
+                            return comment;
+                        });
+
+                        return post;
+                    });
+                } catch (e) {
+                    loadedPosts = initialPosts;
+                }
+            }
+            if (!storedPosts) {
+                localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(loadedPosts));
+            }
+
+            const storedCount = localStorage.getItem(COUNT_STORAGE_KEY);
+            // 修正箇所：初期値をMAX_POSTS_COUNT（3）ではなく、0に設定
+            let loadedCount = (storedCount !== null && !isNaN(parseInt(storedCount, 10))) ? parseInt(storedCount, 10) : 0; 
+            if (storedCount === null) {
+                localStorage.setItem(COUNT_STORAGE_KEY, loadedCount.toString());
+            }
+            
+            return { posts: loadedPosts, count: loadedCount };
+        }
+
+        function saveData(currentPosts, currentCount) {
+            localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(currentPosts));
+            localStorage.setItem(COUNT_STORAGE_KEY, currentCount.toString());
+        }
+
+        function loadProfileData() {
+            const storedProfile = localStorage.getItem(PROFILE_STORAGE_KEY);
+            let loadedProfile = { ...defaultProfile };
+            if (storedProfile) {
+                try {
+                    loadedProfile = { ...defaultProfile, ...JSON.parse(storedProfile), id: CURRENT_USER_ID };
+                } catch (e) {
+                    loadedProfile = { ...defaultProfile };
+                }
+            }
+            if (!storedProfile) {
+                saveProfileData(loadedProfile);
+            }
+            return loadedProfile;
+        }
+
+        function saveProfileData(profile) {
+            localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+        }
+
+        // コメントいいね状態の操作関数
+        function loadCommentLikes() {
+            const storedLikes = localStorage.getItem(COMMENT_LIKES_STORAGE_KEY);
+            if (storedLikes) {
+                try {
+                    return JSON.parse(storedLikes);
+                } catch (e) {
+                    return {};
+                }
+            }
+            return {};
+        }
+
+        function saveCommentLikes(likesData) {
+            localStorage.setItem(COMMENT_LIKES_STORAGE_KEY, JSON.stringify(likesData));
+        }
+        
+        // 投稿いいね状態の操作関数
+        function loadPostLikes() {
+            const storedLikes = localStorage.getItem(POST_LIKES_STORAGE_KEY);
+            if (storedLikes) {
+                try {
+                    // セットとして保存されたIDの配列を返す
+                    return JSON.parse(storedLikes);
+                } catch (e) {
+                    return [];
+                }
+            }
+            return []; // いいねした投稿IDの配列
+        }
+
+        // 投稿いいね状態の操作関数
+        function savePostLikes(likedPostIds) {
+            localStorage.setItem(POST_LIKES_STORAGE_KEY, JSON.stringify(likedPostIds));
+        }
+        
+        // ★追加: 広告回復の最終タイムスタンプをロード
+        function loadAdRecoveryTimestamp() {
+            const storedTimestamp = localStorage.getItem(AD_RECOVERY_TIMESTAMP_KEY);
+            // タイムスタンプがない場合は0（常に利用可能と見なす）
+            return storedTimestamp ? parseInt(storedTimestamp, 10) : 0;
+        }
+        
+        // ★追加: 広告回復の最終タイムスタンプを保存
+        function saveAdRecoveryTimestamp() {
+            localStorage.setItem(AD_RECOVERY_TIMESTAMP_KEY, Date.now().toString());
+        }
+
+        // ★追加: 広告回復が可能かどうかをチェック
+        function isAdRecoveryAvailable() {
+            const lastTimestamp = loadAdRecoveryTimestamp();
+            // 最後に回復してから24時間以上経過しているか
+            return (Date.now() - lastTimestamp) >= ONE_DAY;
+        }
+        
+        // --- 時間表示フォーマット関数 ---
+        function formatTimeAgo(timestamp) {
+            const now = Date.now();
+            const seconds = Math.floor((now - timestamp) / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (seconds < 60) {
+                return 'ついさっき';
+            } else if (minutes < 60) {
+                return `${minutes}分前`;
+            } else if (hours < 24) {
+                return `${hours}時間前`;
+            } else if (days < 7) {
+                return `${days}日前`;
+            } else {
+                const date = new Date(timestamp);
+                return date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+        }
+        
+        // --- バッテリーインジケーターのレンダリング関数 ---
+        // 変更: 第4引数 isPremium を追加（デフォルト false）
+        function renderBatteryIndicator(count, indicatorId, isHome = false, isPremium = false) {
+            const indicator = document.getElementById(indicatorId);
+            if (!indicator) return;
+
+            // Premium時の特別表示
+            if (isPremium) {
+                // 常に満タンの金色バッテリーを表示
+                const segments = `
+                    <div class="w-3 h-4 rounded-sm mx-0.5 bg-amber-500"></div>
+                    <div class="w-3 h-4 rounded-sm mx-0.5 bg-amber-500"></div>
+                    <div class="w-3 h-4 rounded-sm mx-0.5 bg-amber-500"></div>
+                `;
+                const batteryHtml = `
+                    <div class="flex border-2 border-amber-600 battery-gold rounded-md p-0.5 mr-0.5">
+                        <div class="flex items-center">
+                            ${segments}
+                        </div>
+                    </div>
+                    <div class="w-1 h-2 battery-tip rounded-tr-sm rounded-br-sm -ml-0.5"></div>
+                `;
+                indicator.innerHTML = batteryHtml;
+                return;
+            }
+
+            let segments = '';
+            let colorClass = '';
+            
+            // HOMEタブとPOSTタブで色分け
+            if (isHome) {
+                // HOMEタブはCSS変数で白色を制御
+                colorClass = 'bg-white';
+            } else {
+                // POSTタブは残数で色分け
+                if (count >= 3) {
+                    colorClass = 'bg-blue-500'; // 3以上: 青
+                } else if (count === 2) {
+                    colorClass = 'bg-yellow-500'; // 2: 黄色
+                } else { // count <= 1 の場合
+                    colorClass = 'bg-red-500'; // 1以下: 赤
+                }
+            }
+
+
+            for (let i = 0; i < 3; i++) {
+                const isActive = count > i;
+                const activeClasses = isHome ? '' : colorClass; // HOMEでは色クラスを使わず、CSSのbg-whiteを適用
+                const inactiveClasses = isHome ? 'bg-gray-300' : 'bg-gray-300';
+                
+                // HOMEタブの場合、activeClassesは空にし、CSSで設定した白色 (var(--battery-color)) を使用
+                segments += `<div class="w-3 h-4 rounded-sm mx-0.5 ${isActive ? (isHome ? '' : activeClasses) : inactiveClasses}"></div>`;
+            }
+            
+            // HOMEタブの場合のカスタムCSSクラス
+            const homeClasses = isHome ? 'battery-indicator-home border-white' : 'border-gray-400';
+            const homeTipColor = isHome ? 'bg-white' : 'bg-gray-400';
+
+            const batteryHtml = `
+                <div class="flex border-2 ${homeClasses} rounded-md p-0.5 mr-0.5">
+                    <div class="flex items-center">
+                        ${segments}
+                    </div>
+                </div>
+                <div class="w-1 h-2 ${homeTipColor} rounded-tr-sm rounded-br-sm -ml-0.5"></div>
+            `;
+
+            indicator.innerHTML = batteryHtml;
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // データをロード
+            const loadedData = loadData();
+            let posts = loadedData.posts;
+            let remainingPosts = loadedData.count;
+            let profileData = loadProfileData(); 
+            let commentLikesStatus = loadCommentLikes(); // コメントのいいね状態をロード
+            let likedPostIds = loadPostLikes(); // 投稿のいいね状態をロード
+
+            const mainContent = document.getElementById('main-content');
+            const navItems = document.querySelectorAll('.nav-item');
+            const premiumButton = document.getElementById('premium-button');
+            const messageBox = document.getElementById('message-box');
+            const messageBoxOkButton = document.getElementById('message-box-ok');
+            const overlay = document.getElementById('overlay');
+            const commentModal = document.getElementById('comment-modal');
+            const closeCommentModalButton = document.getElementById('close-comment-modal');
+            const commentList = document.getElementById('comment-list');
+            const newCommentInput = document.getElementById('new-comment-input');
+            const submitCommentButton = document.getElementById('submit-comment-button');
+            const eventModal = document.getElementById('event-modal');
+            const closeEventModalButton = document.getElementById('close-event-modal');
+            const eventModalTitle = document.getElementById('event-modal-title');
+            const eventModalContent = document.getElementById('event-modal-content');
+            const postOptionsModal = document.getElementById('post-options-modal');
+            const deletePostButton = document.getElementById('delete-post-button');
+            const cancelPostOptionsButton = document.getElementById('cancel-post-options');
+            
+            // ★管理者モーダル関連
+            const adminModal = document.getElementById('admin-modal'); 
+            const closeAdminModalButton = document.getElementById('close-admin-modal');
+            const resetPostCountButton = document.getElementById('reset-post-count-button');
+            const resetAdLimitButton = document.getElementById('reset-ad-limit-button'); 
+
+            // プロフィール編集関連
+            const profileEditModal = document.getElementById('profile-edit-modal');
+            const closeProfileEditModalButton = document.getElementById('close-profile-edit-modal');
+            const profileEditForm = document.getElementById('profile-edit-form');
+            const editIconInput = document.getElementById('edit-icon'); 
+            const profileIconPreview = document.getElementById('profile-icon-preview'); 
+            let newIconBase64 = null; 
+            
+            const editNameInput = document.getElementById('edit-name');
+            const editUsernameInput = document.getElementById('edit-username');
+            const editBioInput = document.getElementById('edit-bio');
+
+            // イベントの景品データを定義 (省略)
+            const prizes = {}; 
+
+            function renderPosts() {
+                const userIcon = profileData.icon; 
+                likedPostIds = loadPostLikes(); // 描画時にも最新のいいね状態をロード
+
+                return posts.map(post => {
+                    const isCurrentUserPost = post.userId === CURRENT_USER_ID; 
+                    const postUserName = isCurrentUserPost ? profileData.name : post.user;
+                    const postUserIcon = isCurrentUserPost ? userIcon : 'https://placehold.co/40x40/E5E7EB/6B7280?text=User';
+                    const isLiked = likedPostIds.includes(post.id); 
+
+                    const deleteButtonHtml = isCurrentUserPost ? `
+                        <button class="options-button p-1 rounded-full hover:bg-gray-100 transition-colors" data-post-id="${post.id}" data-action="open-options">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-gray-500"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
+                        </button>
+                    ` : '';
+                    
+                    const displayTime = formatTimeAgo(post.timestamp);
+                    const likeButtonClass = isLiked ? 'liked' : ''; 
+
+                    const goldBadgeHtml = (isCurrentUserPost && profileData && profileData.premium) ? `<span class="gold-badge" title="RelaShare JET">★</span>` : '';
+
+                    return `
+                        <div class="post-card bg-white rounded-lg shadow-md mb-5 overflow-hidden" data-post-id="${post.id}">
+                            <div class="post-header flex items-center justify-between p-4">
+                                <div class="flex items-center">
+                                    <img src="${postUserIcon}" alt="User Profile Image" class="w-10 h-10 rounded-full mr-3 object-cover">
+                                    <div>
+                                        <div class="username font-bold text-gray-800">${postUserName} ${goldBadgeHtml}</div>
+                                        <div class="post-time text-gray-500 text-xs">${displayTime}</div>
+                                    </div>
+                                </div>
+                                ${deleteButtonHtml}
+                            </div>
+                            <div class="post-image">
+                                <img src="${post.image}" alt="Post Image" class="w-full h-auto block">
+                            </div>
+                            <div class="post-footer p-4">
+                                <div class="post-actions flex gap-4 mb-2">
+                                    <button class="like-button flex items-center ${likeButtonClass}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-gray-500 cursor-pointer"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /></svg>
+                                        <span class="like-count-inline text-gray-500 text-sm ml-1">${post.likes}</span>
+                                    </button>
+                                    <button class="comment-button">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-gray-500 cursor-pointer"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.204 3 11.75c0 2.21 1.026 4.209 2.768 5.688L3 21.75l5.5-2.846" /></svg>
+                                    </button>
+                                </div>
+                                <p class="caption text-gray-700 text-sm mb-1">${post.caption}</p>
+                                <p class="photographer-mention text-gray-500 text-xs mb-1">撮影者: ${post.photographer}</p>
+                                <p class="location text-gray-500 text-xs mb-1">${post.location}</p>
+                                <a href="#" class="view-comments text-blue-600 text-xs" data-post-id="${post.id}">コメント${post.comments.length}件をすべて表示</a>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            // HOMEページのHTMLを生成する関数
+            function getHomePageHtml() {
+                // ★修正: info-boxにグラデーションクラスを適用し、バッテリーインジケーターのコンテナを追加
+                return `
+                    <div class="info-box gradient-blue p-4 mb-4 rounded-xl text-center shadow-lg clickable-area" id="battery-area-home">
+                        <p class="text-lg font-medium text-white/90">本日の投稿可能回数</p>
+                        <div class="flex items-center justify-center mt-2 space-x-3">
+                            <h2 class="text-4xl font-extrabold text-white" id="remaining-posts-home">${remainingPosts}</h2>
+                            <div id="battery-indicator-home" class="flex justify-center items-center h-6">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="info-box gradient-green p-4 mb-4 rounded-xl text-center shadow-lg clickable-area" id="event-area-home">
+                        <p class="text-lg font-medium text-white/90">現在開催中のイベント</p>
+                        <p class="text-2xl font-bold mt-1 text-white">📷 撮り合いチャレンジ2024夏！
+                        <p class="text-sm mt-2 text-white/80">詳細をチェックして参加しよう！</p>
+                    </div>
+                    ${renderPosts()}
+                `;
+            }
+            
+            // プロフィールページのHTMLを生成する関数 
+            
+function getProfilePageHtml(profile, postsCount) {
+    const userPosts = posts.filter(p => p.userId === CURRENT_USER_ID);
+
+    const postGrid = userPosts.length > 0
+        ? userPosts.map(p => `
+            <img src="${p.image}" alt="User Post" class="w-full h-auto block rounded-lg object-cover">
+          `).join('')
+        : `<p class="text-gray-500 text-center col-span-3 mt-4">まだ投稿がありません。</p>`;
+
+    const goldBadgeHtml = (profile && profile.premium) ? `<span class="gold-badge" title="RelaShare JET">★</span>` : '';
+
+    return `
+        <div class="page-content p-5">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">プロフィール</h2>
+            <div class="profile-header flex flex-col items-center p-5 bg-white rounded-lg shadow-md mb-4">
+                <img src="${profile.icon}" alt="Profile Image" class="w-20 h-20 rounded-full mb-3 object-cover">
+                <div class="flex items-center">
+                  <div class="profile-name text-2xl font-bold text-gray-800">${profile.name}</div>
+                  ${goldBadgeHtml}
+                </div>
+                <div class="profile-username text-gray-500 mb-3">@${profile.username}</div>
+                <div class="profile-stats flex gap-5 mb-4">
+                    <div class="stat-item text-center">
+                        <div class="stat-value text-xl font-bold text-gray-800">${userPosts.length}</div>
+                        <div class="stat-label text-sm text-gray-500">投稿</div>
+                    </div>
+                    <div class="stat-item text-center">
+                        <div class="stat-value text-xl font-bold text-gray-800">${profile.followers}</div>
+                        <div class="stat-label text-sm text-gray-500">フォロワー</div>
+                    </div>
+                    <div class="stat-item text-center">
+                        <div class="stat-value text-xl font-bold text-gray-800">${profile.following}</div>
+                        <div class="stat-label text-sm text-gray-500">フォロー中</div>
+                    </div>
+                </div>
+                <p class="profile-bio text-gray-600 text-center mb-4">${profile.bio}</p>
+                <div class="profile-actions flex gap-2 w-full justify-center">
+                    <button id="edit-profile-button" class="bg-blue-500 text-white py-2 px-4 rounded-lg text-sm flex-grow">プロフィールを編集</button>
+                    <button id="admin-reset-button" class="bg-red-500 text-white py-2 px-4 rounded-lg text-sm hover:bg-red-600 transition-colors">管理者</button>
+                </div>
+            </div>
+
+            <div class="profile-posts-grid grid grid-cols-3 gap-2">
+                ${postGrid}
+            </div>
+        </div>
+    `;
+}
+
+function getPremiumPageHtml() {
+    // Use current profileData to decide whether to show cancel button
+    const isPremium = profileData && profileData.premium;
+    return `
+        <div class="space-y-6">
+            <section class="rounded-3xl bg-gradient-to-br from-amber-500 via-yellow-400 to-amber-300 p-6 shadow-xl">
+                <p class="text-xs uppercase tracking-[0.35em] text-amber-800/80">Premium Plan</p>
+                <h2 class="mt-2 text-3xl font-extrabold tracking-tight text-amber-900">RelaShare JET</h2>
+                <p class="mt-3 text-sm sm:text-base text-amber-900/95 leading-relaxed">
+                    「撮ってもらうこと」を愛するあなたへ。RelaShare JETは、日常のワンシーンをもっと自由に、もっと美しく残せるプレミアムメンバーシップです。
+                </p>
+                <ul class="mt-6 space-y-4 text-sm sm:text-base">
+                    <li class="flex gap-3">
+                        <span class="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-amber-900 shadow">∞</span>
+                        <div>
+                            <p class="font-semibold text-amber-900">一日の投稿が無制限</p>
+                            <p class="text-amber-900/80 text-sm">インスピレーションの瞬間を逃さず、何度でもシェアできます。</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-amber-900 shadow">4K</span>
+                        <div>
+                            <p class="font-semibold text-amber-900">高画質で画像が保存可能</p>
+                            <p class="text-amber-900/80 text-sm">お気に入りのショットをオリジナルに近い解像度で保存できます。</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-amber-900 shadow">✨</span>
+                        <div>
+                            <p class="font-semibold text-amber-900">特別なスタンプ・加工が使用可能</p>
+                            <p class="text-amber-900/80 text-sm">プレミアム限定のクリエイティブツールで、世界観を自在に演出。</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-amber-900 shadow">★</span>
+                        <div>
+                            <p class="font-semibold text-amber-900">名前の横に金色のマークがつく</p>
+                            <p class="text-amber-900/80 text-sm">コミュニティで一目置かれるゴールドバッジを獲得しましょう。</p>
+                        </div>
+                    </li>
+                </ul>
+                <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    ${isPremium ? `<button id="premium-cancel-button" type="button" class="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-red-600 shadow-lg shadow-red-900/20 transition hover:-translate-y-0.5 hover:bg-red-50">解約する</button>` : `<button id="premium-register-button" type="button" class="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-amber-600 shadow-lg shadow-amber-900/20 transition hover:-translate-y-0.5 hover:bg-amber-50">登録する</button>`}
+                    <button id="premium-back-home" type="button" class="inline-flex items-center justify-center rounded-full border border-white/70 px-6 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/10">
+                        ホームへ戻る
+                    </button>
+                </div>
+            </section>
+            <section id="jet-registration-section" class="hidden rounded-3xl border border-amber-200 bg-white p-6 shadow-lg dark:border-amber-500/30 dark:bg-gray-800">
+                <h3 class="text-2xl font-bold text-amber-600 dark:text-amber-400">RelaShare JET 登録フォーム</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">必要事項をご入力いただき、「申し込む」を押してプレミアム体験を始めましょう。</p>
+                <form id="jet-registration-form" class="mt-6 space-y-5">
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        <div>
+                            <label for="jet-name" class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">お名前</label>
+                            <input id="jet-name" name="name" type="text" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-gray-700 dark:bg-gray-900" placeholder="例）山田 花子">
+                        </div>
+                        <div>
+                            <label for="jet-email" class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">メールアドレス</label>
+                            <input id="jet-email" name="email" type="email" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-gray-700 dark:bg-gray-900" placeholder="example@mail.com">
+                        </div>
+                        <div>
+                            <label for="jet-plan" class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">ご希望プラン</label>
+                            <select id="jet-plan" name="plan" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-gray-700 dark:bg-gray-900">
+                                <option value="monthly">月額プラン（¥980/月）</option>
+                                <option value="yearly">年額プラン（¥9,800/年 ※2ヶ月分お得）</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 rounded-2xl bg-amber-50/80 p-4 text-sm text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+                        <input id="jet-terms" type="checkbox" class="mt-1 h-4 w-4 rounded border-amber-400 text-amber-500 focus:ring-amber-400" required>
+                        <label for="jet-terms">利用規約およびプライバシーポリシーに同意します。</label>
+                    </div>
+                    <button type="submit" class="w-full rounded-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-amber-900/20 transition hover:-translate-y-0.5 hover:brightness-110">申し込む</button>
+                </form>
+                <div id="jet-registration-success" role="status" aria-live="polite" tabindex="-1" class="mt-6 hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    お申し込みありがとうございます。担当チームより24時間以内にご案内のメールをお届けします。
+                </div>
+            </section>
+        </div>
+    `;
+}
+
+            
+            // 投稿を削除する関数
+            function deletePost(postId) {
+                const initialLength = posts.length;
+                const postToDelete = posts.find(p => p.id === postId); // 削除対象の投稿を取得
+                
+                posts = posts.filter(p => p.id !== postId);
+                if (posts.length < initialLength) {
+                    
+                    // 自分の投稿を削除した場合でも、投稿可能回数を回復しないように修正（要望対応）
+                    
+                    saveData(posts, remainingPosts);
+                    
+                    // いいね状態からも削除
+                    likedPostIds = likedPostIds.filter(id => id !== postId);
+                    savePostLikes(likedPostIds);
+                    
+                    postOptionsModal.classList.add('hidden');
+                    overlay.classList.add('hidden');
+                    loadPage('home');
+                }
+            }
+
+
+            const pages = {
+                home: getHomePageHtml, 
+                profile: getProfilePageHtml, 
+                premium: getPremiumPageHtml,
+                post: `
+                    <div class="post-page p-4">
+                        <h2 class="text-2xl font-bold mb-4">新規投稿</h2>
+                        <div class="info-box bg-cyan-100 border border-cyan-300 p-4 mb-4 rounded-lg text-center text-teal-800">
+                            <p class="text-lg">本日の投稿可能回数: <span id="remaining-posts" class="font-bold text-xl">${remainingPosts}</span></p>
+                            <div id="battery-indicator" class="flex justify-center items-center mt-3 h-6">
+                            </div>
+                        </div>
+
+                        <div id="no-posts-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center mb-4">
+                            <p class="font-bold">本日の投稿可能回数を使い切りました。</p>
+                            <p class="text-sm">明日までお待ちいただくか、広告を見て投稿回数を1回追加してください。</p>
+                            <button id="show-ad-button" class="post-button secondary mt-4 py-2 px-4">広告を見る (投稿回数+1)</button>
+                            <p id="ad-limit-message" class="text-xs mt-2 text-red-600 hidden"></p>
+                        </div>
+                        
+                        <div id="post-form-content">
+                            
+                            
+                            <div class="mb-6 grid grid-cols-2 gap-4">
+                                <div class="relative">
+                                    <label for="file-input-gallery" id="file-input-label-gallery" class="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer h-32">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-gray-500 mb-1">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.559-4.354l3.332-3.332a2.25 2.25 0 013.182 0m-3.182 8.567l3.182 3.182a2.25 2.25 0 003.182 0" />
+                                        </svg>
+                                        <p class="text-gray-600 font-semibold text-center text-sm">写真を選択</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">（ギャラリー）</p>
+                                    </label>
+                                    <input type="file" id="file-input-gallery" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" style="height: 100%; width: 100%;" />
+                                </div>
+
+                                <div class="relative">
+                                    <label for="file-input-camera" id="file-input-label-camera" class="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-400 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer h-32">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-blue-600 mb-1">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.32 2.32 0 015.186 7.23c-.38.163-.726.391-.974.639-1.359 1.359-1.198 3.551.427 4.965l.344.344A39.425 39.425 0 0012 17.25m-8.625-6.875a39.425 39.425 0 0113.87 0M18.75 6.175a2.32 2.32 0 011.643 1.055c.38.163.726.391.974.639 1.359 1.359 1.198 3.551-.427 4.965l-.344.344c-2.572 2.572-5.744 4.041-9.083 4.629m-8.625-6.875a39.425 39.425 0 0113.87 0" />
+                                        </svg>
+                                        <p class="text-blue-700 font-semibold text-center text-sm">カメラで撮る</p>
+                                        <p class="text-xs text-blue-400 mt-0.5">（そのまま撮影）</p>
+                                    </label>
+                                    <input type="file" id="file-input-camera" accept="image/*" capture="camera" class="absolute inset-0 opacity-0 cursor-pointer" style="height: 100%; width: 100%;" />
+                                </div>
+                            </div>
+
+                            <div id="image-preview" class="hidden mb-4 border border-gray-300 rounded-lg overflow-hidden">
+                                <img id="preview-img" src="" alt="Image Preview" class="w-full h-auto object-cover">
+                            </div>
+                            
+                            <form id="post-details-form" class="space-y-4 hidden">
+                                <div>
+                                    <label for="caption-input" class="block text-sm font-medium text-gray-700">キャプション</label>
+                                    <textarea id="caption-input" rows="3" class="mt-1 block w-full rounded-md post-input" placeholder="写真の説明や気持ちを記入"></textarea>
+                                </div>
+                                <div>
+                                    <label for="mention-input" class="block text-sm font-medium text-gray-700">撮影者 (@付き)</label>
+                                    <input type="text" id="mention-input" class="mt-1 block w-full rounded-md post-input" placeholder="@photographer_name" required>
+                                </div>
+                                <div>
+                                    <label for="location-input" class="block text-sm font-medium text-gray-700">場所</label>
+                                    <input type="text" id="location-input" class="mt-1 block w-full rounded-md post-input" placeholder="例: 東京タワー">
+                                </div>
+                            </form>
+                            
+                            <div id="guideline-checkbox-container" class="checkbox-container hidden">
+                                <input type="checkbox" id="guideline-checkbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <label for="guideline-checkbox" class="ml-2 text-sm text-gray-700">撮影ガイドラインに同意します</label>
+                            </div>
+
+                            <button id="post-complete-button" class="post-button mt-6 hidden" disabled>投稿を完了する</button>
+                        </div>
+                    </div>
+                `,
+                search: `
+                    <div class="search-page p-4">
+                        <h2 class="text-2xl font-bold mb-4">Search</h2>
+                        <input type="text" placeholder="ユーザー名、場所、イベントなどで検索" class="w-full p-3 border border-gray-300 rounded-full mb-6 focus:ring-blue-500 focus:border-blue-500">
+                        
+                        <div class="recommendations">
+                            <h3 class="text-lg font-semibold mb-3">人気のハッシュタグ</h3>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">#富士山</span>
+                                <span class="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">#猫のいる暮らし</span>
+                                <span class="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">#旅行</span>
+                                <span class="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">#日常</span>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                events: `
+                    <div class="events-page p-4">
+                        <h2 class="text-2xl font-bold mb-4">イベント</h2>
+                        <div class="event-card bg-white rounded-lg shadow-md p-4 mb-6 border-l-4 border-blue-500">
+                            <h3 class="text-xl font-bold text-blue-600 mb-2">撮り合いチャレンジ2024夏！</h3>
+                            <p class="text-gray-600 text-sm mb-3">期間: 2024/07/01 ~ 2024/08/31</p>
+                            <p class="text-gray-700 mb-4">最高の夏の思い出を写真に！お互いを撮影し合い、日常の自然な瞬間をシェアしましょう。</p>
+                            <button id="view-challenge-details" class="bg-blue-500 text-white py-2 px-4 rounded-lg text-sm hover:bg-blue-600 transition-colors">詳細を見る</button>
+                        </div>
+                        
+                        <h3 class="text-xl font-bold mb-3">Q&A</h3>
+                        <div id="accordion-container" class="space-y-2">
+                            <div class="accordion-item">
+                                <div class="accordion-header">
+                                    <span class="font-semibold text-gray-700">Q. イベントに参加するには？</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 transition-transform duration-300"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                                </div>
+                                <div class="accordion-content">
+                                    <p class="text-sm text-gray-600">投稿時に自動で参加されます。特にエントリーの必要はありません。</p>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <div class="accordion-header">
+                                    <span class="font-semibold text-gray-700">Q. 景品はありますか？</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 transition-transform duration-300"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                                </div>
+                                <div class="accordion-content">
+                                    <p class="text-sm text-gray-600">はい、優秀作品には豪華景品が用意されています。詳細は「詳細を見る」からご確認ください。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+            };
+            
+            // イベント詳細コンテンツのHTML (省略)
+            const challengeDetailsHtml = `
+                <p><strong>テーマ:</strong> #夏の思い出</p>
+                <p><strong>応募資格:</strong> 登録ユーザー全員</p>
+                <p><strong>選考基準:</strong> 写真の独創性、自然な表情、いいねの数などを総合的に判断します。</p>
+                <h4 class="font-bold mt-4">景品一覧</h4>
+                <div class="prize-card p-3 mt-2">
+                    <p class="font-semibold text-orange-500">【最優秀賞 1名】</p>
+                    <p class="text-sm">高級旅館ペア宿泊券</p>
+                </div>
+                <div class="prize-card p-3 mt-2">
+                    <p class="font-semibold text-gray-500">【優秀賞 5名】</p>
+                    <p class="text-sm">Amazonギフトカード 5,000円分</p>
+                </div>
+            `;
+
+
+            function updatePostCount() {
+                const remainingPostsElement = document.getElementById('remaining-posts');
+                const remainingPostsHomeElement = document.getElementById('remaining-posts-home');
+                const isPremium = profileData && profileData.premium;
+
+                if (remainingPostsElement) {
+                    remainingPostsElement.textContent = isPremium ? '∞' : remainingPosts;
+                }
+                if (remainingPostsHomeElement) {
+                    remainingPostsHomeElement.textContent = isPremium ? '∞' : remainingPosts;
+                }
+                
+                // POSTタブのバッテリーインジケーターを更新
+                renderBatteryIndicator(remainingPosts, 'battery-indicator', false, isPremium);
+                
+                // HOMEタブのバッテリーインジケーターを更新
+                renderBatteryIndicator(remainingPosts, 'battery-indicator-home', true, isPremium);
+            }
+            
+            function showComments(postId) {
+                const post = posts.find(p => p.id === postId);
+                if (!post) return;
+
+                // コメントのいいね状態をロード
+                commentLikesStatus = loadCommentLikes();
+                const likedIndices = commentLikesStatus[postId] || [];
+                
+                // コメントをレンダリング（コメントにインデックスを付与し、削除ボタンを表示）
+                commentList.innerHTML = post.comments.map((comment, index) => {
+                    const isCurrentUserComment = comment.userId === CURRENT_USER_ID; 
+                    const isLiked = likedIndices.includes(index); // 現在のユーザーがいいねしているか
+
+                    // 削除ボタン
+                    const deleteButton = isCurrentUserComment ? `
+                        <button class="delete-comment-button p-1 text-gray-400 hover:text-red-500 transition-colors" data-post-id="${postId}" data-comment-index="${index}">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.166L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.516 6.51m1.86-1.191l-1.425-1.425A1.5 1.5 0 003 4.5v.75m4.5-4.5h.083a1.5 1.5 0 001.06-1.06l.587-.587a1.5 1.5 0 011.06-1.06h3.664a1.5 1.5 0 011.06 1.06l.587.587A1.5 1.5 0 0018 1.5h-3.664a1.5 1.5 0 01-1.06-1.06L12.693.35A1.5 1.5 0 0012 0h-3.664a1.5 1.5 0 00-1.06 1.06L6.78 1.643A1.5 1.5 0 006 3.0v1.5zM12 9v9" />
+                            </svg>
+                        </button>
+                    ` : '';
+
+                    // いいねボタンと数
+                    const likeButtonHtml = `
+                        <button class="comment-like-button p-1 transition-colors ${isLiked ? 'liked' : ''}" data-post-id="${postId}" data-comment-index="${index}">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="${isLiked ? '#ef4444' : 'none'}" viewBox="0 0 24 24" stroke-width="1.5" stroke="${isLiked ? '#ef4444' : 'currentColor'}" class="w-4 h-4 text-gray-400 hover:text-red-500 transition-colors">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                            </svg>
+                        </button>
+                        <span class="text-xs text-gray-500 ml-1">${comment.likes || 0}</span>
+                    `;
+
+
+                    return `
+                        <div class="comment-item flex justify-between items-start border-b border-gray-200 pb-2 mb-2 last:border-b-0 last:pb-0 last:mb-0" data-comment-index="${index}">
+                            <div class="flex-grow min-w-0 pr-2">
+                                <span class="font-semibold text-gray-800">${comment.user}:</span>
+                                <span class="text-gray-600 break-words">${comment.text}</span>
+                            </div>
+                            <div class="flex items-center space-x-2 flex-shrink-0">
+                                <div class="flex items-center">
+                                    ${likeButtonHtml}
+                                </div>
+                                ${deleteButton}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                commentModal.dataset.postId = postId;
+                commentModal.classList.remove('hidden');
+                overlay.classList.remove('hidden');
+                
+                // コメント削除ボタンのイベントリスナーを設定 (削除確認を追加)
+                document.querySelectorAll('.delete-comment-button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        if (!confirm('このコメントを削除しますか？')) { // **削除確認**
+                            return;
+                        }
+                        
+                        const postId = parseInt(e.currentTarget.dataset.postId);
+                        const commentIndex = parseInt(e.currentTarget.dataset.commentIndex); 
+                        
+                        const post = posts.find(p => p.id === postId);
+
+                        // 安全確認: 投稿とコメントが存在し、かつ自分のコメントであることを確認
+                        if (post && post.comments[commentIndex] && post.comments[commentIndex].userId === CURRENT_USER_ID) {
+                            // コメントを削除
+                            post.comments.splice(commentIndex, 1);
+                            
+                            // データを保存
+                            saveData(posts, remainingPosts);
+
+                            // コメント一覧を更新 (モーダルを再表示)
+                            showComments(postId); 
+
+                            // 投稿カードのコメント数を更新
+                            const commentCountElement = document.querySelector(`.view-comments[data-post-id="${postId}"]`);
+                            if(commentCountElement) {
+                                commentCountElement.textContent = `コメント${post.comments.length}件をすべて表示`;
+                            }
+                        }
+                    });
+                });
+
+                // コメントいいねボタンのイベントリスナーを設定
+                document.querySelectorAll('.comment-like-button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const postId = parseInt(e.currentTarget.dataset.postId);
+                        const commentIndex = parseInt(e.currentTarget.dataset.commentIndex);
+                        
+                        const post = posts.find(p => p.id === postId);
+                        const comment = post ? post.comments[commentIndex] : null;
+
+                        if (comment) {
+                            // ユーザーのいいね状態を管理する配列を取得
+                            let likedIndices = commentLikesStatus[postId] || [];
+                            const isCurrentlyLiked = likedIndices.includes(commentIndex);
+
+                            if (isCurrentlyLiked) {
+                                // いいねを解除
+                                comment.likes = (comment.likes || 0) - 1;
+                                likedIndices = likedIndices.filter(i => i !== commentIndex);
+                            } else {
+                                // いいね
+                                comment.likes = (comment.likes || 0) + 1;
+                                likedIndices.push(commentIndex);
+                            }
+                            
+                            // 状態を更新して保存
+                            commentLikesStatus[postId] = likedIndices;
+                            saveCommentLikes(commentLikesStatus);
+                            saveData(posts, remainingPosts);
+
+                            // コメント一覧を再描画して変更を反映
+                            showComments(postId);
+                        }
+                    });
+                });
+            }
+
+            function loadPage(pageName) {
+                
+                if (pageName === 'profile') {
+                    profileData = loadProfileData(); 
+                    mainContent.innerHTML = getProfilePageHtml(profileData, posts.filter(p => p.userId === CURRENT_USER_ID).length); 
+                    
+                    document.getElementById('edit-profile-button').addEventListener('click', () => {
+                        profileIconPreview.src = profileData.icon; 
+                        newIconBase64 = profileData.icon; 
+                        editNameInput.value = profileData.name;
+                        editUsernameInput.value = profileData.username;
+                        editBioInput.value = profileData.bio;
+                        
+                        profileEditModal.classList.remove('hidden');
+                        overlay.classList.remove('hidden');
+                    });
+                    
+                    // ★修正: 管理者ボタンをクリックしたら管理者モーダルを表示
+                    document.getElementById('admin-reset-button').addEventListener('click', () => {
+                        adminModal.classList.remove('hidden');
+                        overlay.classList.remove('hidden');
+                    });
+                    
+                } else {
+                    if (pageName === 'home') {
+                         profileData = loadProfileData(); 
+                    }
+                    mainContent.innerHTML = (typeof pages[pageName] === 'function') ? pages[pageName]() : pages[pageName];
+                }
+                
+                navItems.forEach(item => item.classList.remove('active'));
+                const activeNavItem = document.querySelector(`.nav-item[data-page="${pageName}"]`);
+                if (activeNavItem) {
+                    activeNavItem.classList.add('active');
+                }
+
+                updatePostCount(); 
+                
+                if (pageName === 'home') {
+                    // battery area clickable -> go to post tab
+                    const batteryArea = document.getElementById('battery-area-home');
+                    if (batteryArea) {
+                        batteryArea.addEventListener('click', () => {
+                            loadPage('post');
+                        });
+                    }
+                    // event area clickable -> go to events tab
+                    const eventArea = document.getElementById('event-area-home');
+                    if (eventArea) {
+                        eventArea.addEventListener('click', () => {
+                            loadPage('events');
+                        });
+                    }
+
+                    document.querySelectorAll('.view-comments').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const postId = parseInt(e.target.dataset.postId);
+                            showComments(postId);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.like-button').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            const postCard = e.target.closest('.post-card');
+                            const postId = parseInt(postCard.dataset.postId);
+                            const post = posts.find(p => p.id === postId);
+                            
+                            // いいね状態をlocalStorageからロード
+                            likedPostIds = loadPostLikes();
+
+                            if (post) {
+                                const isLiked = likedPostIds.includes(postId);
+
+                                if (isLiked) {
+                                    // いいね解除
+                                    // ★修正: post.likesが0より大きい場合のみデクリメントするガードを追加
+                                    if (post.likes > 0) { 
+                                        post.likes--;
+                                    }
+                                    // クラスを削除
+                                    button.classList.remove('liked'); 
+                                    // IDをリストから削除
+                                    likedPostIds = likedPostIds.filter(id => id !== postId);
+                                } else {
+                                    // いいね
+                                    post.likes++;
+                                    // クラスを追加
+                                    button.classList.add('liked');
+                                    // IDをリストに追加
+                                    likedPostIds.push(postId);
+                                }
+                                
+                                // いいね状態と投稿データを保存
+                                savePostLikes(likedPostIds);
+                                saveData(posts, remainingPosts); 
+
+                                
+                                // ★修正: インラインのいいね数を更新
+                                const inlineCountElement = postCard.querySelector('.like-count-inline');
+                                if (inlineCountElement) {
+                                    inlineCountElement.textContent = post.likes;
+                                }
+                            }
+                        });
+                    });
+                    
+                    document.querySelectorAll('.comment-button').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            const postCard = e.target.closest('.post-card');
+                            const postId = parseInt(postCard.dataset.postId);
+                            showComments(postId);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.options-button').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            const postId = parseInt(e.currentTarget.dataset.postId);
+                            deletePostButton.dataset.deletingPostId = postId;
+                            postOptionsModal.classList.remove('hidden');
+                            overlay.classList.remove('hidden');
+                        });
+                    });
+                }
+                
+                if (pageName === 'post') {
+                    const fileInputGallery = document.getElementById('file-input-gallery');
+                    const fileInputCamera = document.getElementById('file-input-camera');
+                    const imagePreview = document.getElementById('image-preview');
+                    const previewImg = document.getElementById('preview-img');
+                    const postDetailsForm = document.getElementById('post-details-form');
+                    const guidelineCheckboxContainer = document.getElementById('guideline-checkbox-container');
+                    const guidelineCheckbox = document.getElementById('guideline-checkbox');
+                    const postCompleteButton = document.getElementById('post-complete-button');
+                    const postFormContent = document.getElementById('post-form-content');
+                    const noPostsMessage = document.getElementById('no-posts-message');
+                    const showAdButton = document.getElementById('show-ad-button');
+                    const adLimitMessage = document.getElementById('ad-limit-message'); 
+                    const captionInput = document.getElementById('caption-input');
+                    const mentionInput = document.getElementById('mention-input');
+                    const locationInput = document.getElementById('location-input');
+                    const fileInputLabelGallery = document.getElementById('file-input-label-gallery');
+                    
+                    let uploadedImageBase64 = null;
+                    
+                    // If premium, post form always available
+                    if (profileData && profileData.premium) {
+                        postFormContent.classList.remove('hidden');
+                        noPostsMessage.classList.add('hidden');
+                    } else {
+                        if (remainingPosts <= 0) {
+                            postFormContent.classList.add('hidden');
+                            noPostsMessage.classList.remove('hidden');
+
+                            const isAvailable = isAdRecoveryAvailable();
+                            
+                            if (isAvailable) {
+                                showAdButton.disabled = false;
+                                showAdButton.classList.remove('post-button:disabled'); 
+                                showAdButton.classList.add('secondary');
+                                showAdButton.textContent = '広告を見る (投稿回数+1)';
+                                adLimitMessage.classList.add('hidden');
+                            } else {
+                                showAdButton.disabled = true;
+                                showAdButton.classList.add('post-button:disabled'); 
+                                showAdButton.classList.remove('secondary'); 
+                                
+                                // 次の回復までの時間を計算
+                                const lastTimestamp = loadAdRecoveryTimestamp();
+                                const timeElapsed = Date.now() - lastTimestamp;
+                                const timeLeftMillis = ONE_DAY - timeElapsed;
+                                const hours = Math.floor(timeLeftMillis / ONE_HOUR);
+                                // 分は切り上げて表示
+                                const minutes = Math.ceil((timeLeftMillis % ONE_HOUR) / ONE_MINUTE);
+                                
+                                showAdButton.textContent = `待機中 (${hours}時間${minutes}分後)`;
+                                
+                                // 制限メッセージを表示
+                                const nextResetTime = new Date(lastTimestamp + ONE_DAY);
+                                const nextResetTimeString = nextResetTime.toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'});
+
+                                adLimitMessage.textContent = `（広告による回復は、24時間に1回のみ可能です。次の回復は${hours}時間${minutes}分後 (${nextResetTimeString}以降) です。）`;
+                                adLimitMessage.classList.remove('hidden');
+                            }
+                        } else {
+                            postFormContent.classList.remove('hidden');
+                            noPostsMessage.classList.add('hidden');
+                        }
+                    }
+
+                    const resetPostForm = () => {
+                        uploadedImageBase64 = null;
+                        imagePreview.classList.add('hidden');
+                        fileInputLabelGallery.closest('.grid').classList.remove('hidden'); 
+                        postDetailsForm.classList.add('hidden');
+                        guidelineCheckboxContainer.classList.add('hidden');
+                        postCompleteButton.classList.add('hidden');
+                        postCompleteButton.disabled = true;
+                        guidelineCheckbox.checked = false;
+                        captionInput.value = '';
+                        mentionInput.value = '';
+                        locationInput.value = '';
+                        fileInputGallery.value = '';
+                        fileInputCamera.value = '';
+                    };
+                    
+                    const showPostDetails = () => {
+                        fileInputLabelGallery.closest('.grid').classList.add('hidden'); 
+                        postDetailsForm.classList.remove('hidden');
+                        guidelineCheckboxContainer.classList.remove('hidden');
+                        postCompleteButton.classList.remove('hidden');
+                        postCompleteButton.disabled = !guidelineCheckbox.checked; // チェックボックスの状態に応じて有効化
+                        imagePreview.classList.remove('hidden');
+                    };
+
+                    const handleImageUpload = (event) => {
+                        const file = event.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                uploadedImageBase64 = e.target.result;
+                                previewImg.src = uploadedImageBase64;
+                                showPostDetails();
+                            };
+                            reader.readAsDataURL(file);
+                        } else {
+                            resetPostForm();
+                        }
+                    };
+
+                    fileInputGallery.addEventListener('change', handleImageUpload);
+                    fileInputCamera.addEventListener('change', handleImageUpload);
+                    
+                    guidelineCheckbox.addEventListener('change', () => {
+                        // premium bypass: always enabled if premium
+                        postCompleteButton.disabled = !(guidelineCheckbox.checked || (profileData && profileData.premium)) || (remainingPosts <= 0 && !(profileData && profileData.premium));
+                    });
+
+                    postCompleteButton.addEventListener('click', () => {
+                        if (!(profileData && profileData.premium) && (remainingPosts <= 0 || !guidelineCheckbox.checked)) {
+                            return; 
+                        }
+                        
+                        // 連続投稿防止のため、すぐにボタンを無効化
+                        postCompleteButton.disabled = true; 
+
+                        const currentName = loadProfileData().name; 
+                        
+                        const newPost = {
+                            id: Date.now(), 
+                            user: currentName, 
+                            userId: CURRENT_USER_ID, 
+                            timestamp: Date.now(), 
+                            image: uploadedImageBase64 || 'https://placehold.co/600x450/E5E7EB/6B7280?text=Post',
+                            caption: captionInput.value || '（キャプションなし）',
+                            photographer: mentionInput.value || '@Unknown',
+                            location: locationInput.value || '不明な場所',
+                            likes: 0,
+                            comments: []
+                        };
+                        
+                        posts.unshift(newPost);
+                        // Decrement remainingPosts only if not premium
+                        if (!(profileData && profileData.premium)) {
+                            remainingPosts--;
+                        }
+                        saveData(posts, remainingPosts);
+
+                        updatePostCount();
+                        // mark message action so OK handler reliably navigates
+                        messageBox.dataset.action = 'post';
+                        messageBox.querySelector('p').textContent = '投稿が完了しました！';
+                        messageBox.classList.remove('hidden');
+                        overlay.classList.remove('hidden');
+    
+                        resetPostForm();
+
+                        if (!(profileData && profileData.premium) && remainingPosts <= 0) {
+                            postFormContent.classList.add('hidden');
+                            noPostsMessage.classList.remove('hidden');
+                            
+                            // 広告ボタンの状態を再評価し表示
+                            const isAvailable = isAdRecoveryAvailable();
+                            
+                            if (isAvailable) {
+                                showAdButton.disabled = false;
+                                showAdButton.classList.remove('post-button:disabled'); 
+                                showAdButton.classList.add('secondary');
+                                showAdButton.textContent = '広告を見る (投稿回数+1)';
+                                adLimitMessage.classList.add('hidden');
+                            } else {
+                                showAdButton.disabled = true;
+                                showAdButton.classList.add('post-button:disabled'); 
+                                showAdButton.classList.remove('secondary'); 
+                                
+                                const lastTimestamp = loadAdRecoveryTimestamp();
+                                const timeElapsed = Date.now() - lastTimestamp;
+                                const timeLeftMillis = ONE_DAY - timeElapsed;
+                                const hours = Math.floor(timeLeftMillis / ONE_HOUR);
+                                const minutes = Math.ceil((timeLeftMillis % ONE_HOUR) / ONE_MINUTE);
+                                
+                                showAdButton.textContent = `待機中 (${hours}時間${minutes}分後)`;
+                                
+                                const nextResetTime = new Date(lastTimestamp + ONE_DAY);
+                                const nextResetTimeString = nextResetTime.toLocaleTimeString('ja-JP', {hour: '2-digit', minute:'2-digit'});
+
+                                adLimitMessage.textContent = `（広告による回復は、24時間に1回のみ可能です。次の回復は${hours}時間${minutes}分後 (${nextResetTimeString}以降) です。）`;
+                                adLimitMessage.classList.remove('hidden');
+                            }
+                        }
+                    });
+
+                    if (showAdButton) {
+                        showAdButton.addEventListener('click', () => {
+                            if (isAdRecoveryAvailable()) { 
+                                remainingPosts++;
+                                saveAdRecoveryTimestamp();
+                                saveData(posts, remainingPosts);
+                                updatePostCount();
+                                messageBox.dataset.action = 'ad';
+                                messageBox.querySelector('p').textContent = '広告を見たので、投稿回数が1回追加されました！';
+                                messageBox.classList.remove('hidden');
+                                overlay.classList.remove('hidden');
+                            } else {
+                                alert('広告による回復は24時間に1回のみ可能です。しばらくお待ちください。');
+                            }
+                        });
+                    }
+                }
+                
+                if (pageName === 'events') {
+                    document.querySelectorAll('.accordion-header').forEach(header => {
+                        header.addEventListener('click', (e) => {
+                            const content = e.currentTarget.nextElementSibling;
+                            const svg = e.currentTarget.querySelector('svg');
+                            
+                            const isExpanded = content.style.display === 'block';
+
+                            document.querySelectorAll('.accordion-content').forEach(c => c.style.display = 'none');
+                            document.querySelectorAll('.accordion-header svg').forEach(s => s.style.transform = 'rotate(0deg)');
+
+                            if (!isExpanded) {
+                                content.style.display = 'block';
+                                svg.style.transform = 'rotate(180deg)';
+                            }
+                        });
+                    });
+                    
+                    document.getElementById('view-challenge-details').addEventListener('click', () => {
+                        eventModalTitle.textContent = '撮り合いチャレンジ2024夏！';
+                        eventModalContent.innerHTML = challengeDetailsHtml;
+                        eventModal.classList.remove('hidden');
+                        overlay.classList.remove('hidden');
+                    });
+                }
+
+                if (pageName === 'premium') {
+                    const registerButton = document.getElementById('premium-register-button');
+                    const backHomeButton = document.getElementById('premium-back-home');
+                    const registrationSection = document.getElementById('jet-registration-section');
+                    const registrationForm = document.getElementById('jet-registration-form');
+                    const successMessage = document.getElementById('jet-registration-success');
+                    const cancelButton = document.getElementById('premium-cancel-button');
+
+                    if (backHomeButton) {
+                        backHomeButton.addEventListener('click', () => {
+                            loadPage('home');
+                        });
+                    }
+
+                    if (registerButton && registrationSection) {
+                        registerButton.addEventListener('click', () => {
+                            if (successMessage) {
+                                successMessage.classList.add('hidden');
+                            }
+                            registrationSection.classList.remove('hidden');
+                            registrationSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        });
+                    }
+
+                    if (registrationForm) {
+                        registrationForm.addEventListener('submit', (e) => {
+                            e.preventDefault();
+                            // Set premium on profileData and persist
+                            profileData = loadProfileData();
+                            profileData.premium = true;
+                            saveProfileData(profileData);
+                            // フォーム送信時に大きな完了メッセージを表示してHOMEタブに戻す
+                            registrationForm.reset();
+                            messageBox.dataset.action = 'register';
+                            messageBox.querySelector('p').innerHTML = '<span style="font-size:1.25rem;font-weight:700;display:block;margin-bottom:0.5rem;">入会が完了しました！</span>RelaShare JETへようこそ。';
+                            messageBox.classList.remove('hidden');
+                            overlay.classList.remove('hidden');
+                            // HOMEに遷移して、ユーザーにホーム画面を見せる
+                            loadPage('home');
+                        });
+                    }
+
+                    if (cancelButton) {
+                        cancelButton.addEventListener('click', () => {
+                            if (!confirm('本当に解約しますか？解約するとプレミアム特典は無効になります。')) return;
+                            profileData = loadProfileData();
+                            profileData.premium = false;
+                            saveProfileData(profileData);
+                            messageBox.dataset.action = 'cancel';
+                            messageBox.querySelector('p').innerHTML = '<span style="font-size:1.1rem;font-weight:700;display:block;margin-bottom:0.3rem;">解約が完了しました</span>プレミアム特典は解除されました。';
+                            messageBox.classList.remove('hidden');
+                            overlay.classList.remove('hidden');
+                            loadPage('home');
+                        });
+                    }
+                }
+            }
+            
+            // --- モーダルの操作 ---
+
+            messageBoxOkButton.addEventListener('click', () => {
+                const action = messageBox.dataset.action || '';
+                messageBox.classList.add('hidden');
+                overlay.classList.add('hidden');
+                // reset default text
+                messageBox.querySelector('p').textContent = '投稿が完了しました！';
+                // handle navigation based on last action
+                if (action === 'resetCount' || action === 'resetAd' || action === 'ad') {
+                    loadPage('post');
+                } else if (action === 'register' || action === 'cancel' || action === 'profileUpdate') {
+                    loadPage('home');
+                } else {
+                    // default for normal post
+                    loadPage('home');
+                }
+                // clear action
+                delete messageBox.dataset.action;
+            });
+
+            closeCommentModalButton.addEventListener('click', () => {
+                commentModal.classList.add('hidden');
+                overlay.classList.add('hidden');
+            });
+            
+            closeProfileEditModalButton.addEventListener('click', () => {
+                profileEditModal.classList.add('hidden');
+                overlay.classList.add('hidden');
+                newIconBase64 = null; 
+            });
+
+            closeEventModalButton.addEventListener('click', () => {
+                eventModal.classList.add('hidden');
+                overlay.classList.add('hidden');
+            });
+            
+            // ★修正: 管理者モーダルを閉じる
+            if (closeAdminModalButton) {
+                closeAdminModalButton.addEventListener('click', () => {
+                    adminModal.classList.add('hidden');
+                    overlay.classList.add('hidden');
+                });
+            }
+
+            cancelPostOptionsButton.addEventListener('click', () => {
+                postOptionsModal.classList.add('hidden');
+                overlay.classList.add('hidden');
+            });
+
+            deletePostButton.addEventListener('click', () => {
+                const postId = parseInt(deletePostButton.dataset.deletingPostId);
+                if (postId && confirm('本当にこの投稿を削除しますか？')) {
+                    deletePost(postId);
+                }
+            });
+
+            submitCommentButton.addEventListener('click', () => {
+                const newCommentText = newCommentInput.value.trim();
+                if (newCommentText) {
+                    const postId = parseInt(commentModal.dataset.postId);
+                    const post = posts.find(p => p.id === postId);
+                    if (post) {
+                        const commentUser = loadProfileData().name; 
+
+                        // 自分のコメントとしてuserIdを付与
+                        post.comments.push({ 
+                            user: commentUser, 
+                            text: newCommentText,
+                            userId: CURRENT_USER_ID,
+                            likes: 0 // 新規コメントのいいね数は0
+                        });
+                        
+                        newCommentInput.value = '';
+                        showComments(postId); 
+                        
+                        const commentCountElement = document.querySelector(`.view-comments[data-post-id="${postId}"]`);
+                        if(commentCountElement) {
+                            commentCountElement.textContent = `コメント${post.comments.length}件をすべて表示`;
+                        }
+                        
+                        saveData(posts, remainingPosts);
+                    }
+                }
+            });
+            
+            // ★修正: 投稿回数リセット機能 (overlay表示と遷移先を修正)
+            if (resetPostCountButton) {
+                resetPostCountButton.addEventListener('click', () => {
+                    if (confirm('投稿回数を最大値(' + MAX_POSTS_COUNT + '回)にリセットしますか？')) {
+                        remainingPosts = MAX_POSTS_COUNT;
+                        saveData(posts, remainingPosts); 
+
+                        adminModal.classList.add('hidden');
+                        overlay.classList.remove('hidden');
+                        messageBox.dataset.action = 'resetCount';
+                        messageBox.querySelector('p').textContent = '投稿回数が最大値(' + MAX_POSTS_COUNT + '回)にリセットされました！';
+                        messageBox.classList.remove('hidden');
+                        
+                        updatePostCount();
+                    }
+                });
+            }
+
+            // ★修正: 広告回復制限リセット機能 (overlay表示と遷移先を修正)
+            if (resetAdLimitButton) {
+                resetAdLimitButton.addEventListener('click', () => {
+                    if (confirm('広告視聴による回復制限をリセットし、すぐに利用可能にしますか？')) {
+                        // AD_RECOVERY_TIMESTAMP_KEY を '0' に設定することで、isAdRecoveryAvailable() が常に true を返すようにする
+                        localStorage.setItem(AD_RECOVERY_TIMESTAMP_KEY, '0'); 
+                        
+                        adminModal.classList.add('hidden');
+                        overlay.classList.remove('hidden');
+                        messageBox.dataset.action = 'resetAd';
+                        messageBox.querySelector('p').textContent = '広告回復制限がリセットされました。広告による回復がすぐに利用可能です！';
+                        messageBox.classList.remove('hidden');
+                    }
+                });
+            }
+
+            editIconInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        newIconBase64 = e.target.result;
+                        profileIconPreview.src = newIconBase64;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            profileEditForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const newName = editNameInput.value.trim();
+                
+                profileData.name = newName;
+                profileData.username = editUsernameInput.value.trim().replace('@', ''); 
+                profileData.bio = editBioInput.value.trim();
+                if (newIconBase64) {
+                    profileData.icon = newIconBase64; 
+                }
+                
+                // 自分の投稿の名前とコメントの名前を一括更新
+                posts = posts.map(post => {
+                    if (post.userId === CURRENT_USER_ID) {
+                        post.user = newName;
+                    }
+                    post.comments = post.comments.map(comment => {
+                        if (comment.userId === CURRENT_USER_ID) {
+                            comment.user = newName;
+                        }
+                        return comment;
+                    });
+                    return post;
+                });
+
+                saveProfileData(profileData);
+                saveData(posts, remainingPosts); 
+                
+                profileEditModal.classList.add('hidden');
+                overlay.classList.add('hidden');
+                newIconBase64 = null; 
+                
+                loadPage('profile'); 
+
+                messageBox.dataset.action = 'profileUpdate';
+                messageBox.querySelector('p').textContent = 'プロフィールが更新されました！';
+                messageBox.classList.remove('hidden');
+                overlay.classList.remove('hidden');
+            });
+
+            if (premiumButton) {
+                premiumButton.addEventListener('click', () => {
+                    loadPage('premium');
+                });
+            }
+
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const page = item.dataset.page;
+                    loadPage(page);
+                });
+            });
+
+            loadPage('home');
+        });
+    </script>
+</body>
+</html>
